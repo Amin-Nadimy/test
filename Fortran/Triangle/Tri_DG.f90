@@ -30,10 +30,10 @@ program wave_equation
   ! real :: rdum(:)
 
   CFL = 0.01
-  no_ele_row = 70
-  no_ele_col = 70
+  no_ele_row = 10
+  no_ele_col = 1
   totele = no_ele_row * no_ele_col
-  nface =  4
+  nface =  3 !4
   !dx = L/(no_ele_row)
   !dy = L/(no_ele_col)
   dx = 1.0
@@ -41,12 +41,12 @@ program wave_equation
   ndim = 2
   sndim = ndim-1 ! dimensions of the surface element coordinates.
   snloc = 2 ! no of nodes on each boundary line
-  ngi = 4
+  ngi = 3 !4
   sngi = 2 ! no of surface quadrature points of the faces - this is set to the max no of all faces
-  nloc = 4
+  nloc = 3 !4
   mloc=1
-  ntime = 3000
-  n_s_list_no = 4
+  ntime = 1
+  n_s_list_no = 3 !4
   njac_its=10 ! no of Jacobi iterations
   direct_solver=.true. ! use direct solver?
 
@@ -70,27 +70,33 @@ program wave_equation
   u_bc(:,:,:)=0.0 ! this contains the boundary conditions on velocity just outside the domain
   ! initial conditions
   t_new(:,:) = 0.0
-  ! t_new(:,no_ele_row/5:no_ele_row/2) = 1.0 ! a bit off - is this correct -only correct for 1D?
+
+  ! 1D initial Conditions
+  t_new(:,no_ele_row/5:no_ele_row/2) = 1.0 ! only correct for 1D
 
   ! ! 2D initial conditions
-  do i=1,no_ele_col/2
-    t_new(:,i*no_ele_row+no_ele_row/5:i*no_ele_row+no_ele_row/2) = 1.0
-  end do
+  ! do i=1,no_ele_col/2
+  !   t_new(:,i*no_ele_row+no_ele_row/5:i*no_ele_row+no_ele_row/2) = 1.0
+  ! end do
 
   U_ele(:,:,:) = 0
   U_ele(:,:,1:totele) = 1.0 ! suggest this should be unity
   u_bc(:,:,:)=u_ele(:,:,:) ! this contains the boundary conditions on velocity just outside the domain
-!  dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
+ !  dt = CFL/((u_ele(1,1,1)/dx)+(u_ele(2,1,1)/dy))
   dt = CFL*dx
-!  print *,'dt=',dt
+ !  print *,'dt=',dt
 
   LOWQUA=.True.
   call RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX(:,1,:),NLX(:,2,:),  SNGI,SNLOC,SWEIGH,SN_orig,SNLX_orig)
-  call ele_info(totele, nface, face_ele, no_ele_row, row, row2, &
-                x_all, dx, dy, ndim, nloc, no_ele_col, col)
+  call tri_ele_info(totele, nface, face_ele, no_ele_row, row, row2, &
+                    x_all, dx, dy, ndim, nloc, no_ele_col, col)
   call surface_pointers_sn(nface, sngi, snloc, nloc, ndim, sndim, totele, n_s_list_no, no_ele_row, no_ele_col, &
                sn_orig, snlx_orig, face_sn, face_snlx, face_sn2, face_list_no)
-! print*, face_snlx(:,:,4,1) ! it gives results for iloc 1,3 and 4 but not 2.
+ ! print*, face_snlx(:,:,4,1) ! it gives results for iloc 1,3 and 4 but not 2.
+  do ele=1,totele
+    print*, ele, face_ele(:,ele)
+  end do
+ stop
 
   do itime=1,ntime
     t_old =t_new ! prepare for next time step
@@ -100,15 +106,14 @@ program wave_equation
       x_loc(:,:)=x_all(:,:,ele) ! x_all contains the coordinates of the corner nodes
       call det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
       !volume=sum(detwei)
-!      do gi=1,ngi
-!         print *,'gi=',gi
-!         print *,'nx(gi,1,:):',nx(gi,1,:)
-!         print *,'nx(gi,2,:):',nx(gi,2,:)
-!      end do
-!      stop 221
+ !      do gi=1,ngi
+ !         print *,'gi=',gi
+ !         print *,'nx(gi,1,:):',nx(gi,1,:)
+ !         print *,'nx(gi,2,:):',nx(gi,2,:)
+ !      end do
+ !      stop 221
 
       u_loc(:,:) = u_ele(:,:,ele) ! this is the
-!AMIN changed to t_old
       t_loc(:) =  t_old(:,ele) ! this is the FEM element - 2nd index is the local node number
 
       ! calculates vel at gi sum = phi_1(gi)*c1 +phi_2(gi)*c2 +phi_3(gi)*c3 +phi_4(gi)*c4
@@ -161,9 +166,9 @@ program wave_equation
       !   end if
       ! end do
       ! print*, diff_coe
-!       print *,'ele,tgi(:):',ele,tgi(:)
-!       print *,'t_loc(:):',t_loc(:)
-!       print *,'ugi(:,:):',ugi(:,:)
+ !       print *,'ele,tgi(:):',ele,tgi(:)
+ !       print *,'t_loc(:):',t_loc(:)
+ !       print *,'ugi(:,:):',ugi(:,:)
 
       !Include the surface integral here:
       do iface = 1,nface
@@ -171,8 +176,8 @@ program wave_equation
         i_got_boundary = (sign(1, -ele22) + 1 )/2
         r_got_boundary = real(i_got_boundary)
         ele2 = ele*i_got_boundary + ele22*(1-i_got_boundary)
-! r_got_boundary=1.0 if we want to use the boundary conditions and have incomming velocity.
-! r_got_boundary=0.0 not on boundary
+ ! r_got_boundary=1.0 if we want to use the boundary conditions and have incomming velocity.
+ !  r_got_boundary=0.0 not on boundary
 
         t_loc2(:)=t_new(:,ele2) * (1.0-r_got_boundary)     + t_bc(:,ele)  * r_got_boundary
         u_loc2(:,:)=u_ele(:,:,ele2)* (1.0-r_got_boundary)  + u_bc(:,:,ele)* r_got_boundary
@@ -205,16 +210,16 @@ program wave_equation
         end do
         ! start to do the integration
         call det_snlx_all( nloc, sngi, sndim, ndim, x_loc, sn, snlx, sweigh, sdetwei, sarea, snorm, norm )
-!      print *,'iface,sum(sdetwei(:)):',iface,sum(sdetwei(:))
+ !      print *,'iface,sum(sdetwei(:)):',iface,sum(sdetwei(:))
 
-! income=1 if info is comming from neighbouring element.
+ ! income=1 if info is comming from neighbouring element.
         do s_gi=1,sngi
           income(s_gi)=0.5 + 0.5*sign(1.0, -sum(snorm(s_gi,:)*0.5*(usgi(s_gi,:)+usgi2(s_gi,:)))  )
         end do
-!        print *,'iface,income:',iface,income
-!        print *,'snorm(1,:):',snorm(1,:)
-!        print *,'snorm(2,:):',snorm(2,:)
-!        print *,'ele22, i_got_boundary, r_got_boundary, ele, ele2:',ele22, i_got_boundary, r_got_boundary, ele, ele2
+ !        print *,'iface,income:',iface,income
+ !        print *,'snorm(1,:):',snorm(1,:)
+ !        print *,'snorm(2,:):',snorm(2,:)
+ !        print *,'ele22, i_got_boundary, r_got_boundary, ele, ele2:',ele22, i_got_boundary, r_got_boundary, ele, ele2
 
         ! sloc_vec=0.0; sloc_vec2=0.0
         do idim=1,ndim
@@ -254,12 +259,12 @@ program wave_equation
     t_new=t_new_nonlin
   end do ! do itime=1,ntime
 
-  OPEN(unit=10, file='DG-FEM, time=3000')
+  OPEN(unit=10, file='1DG-FEM, time=3000')
     do ele=1,totele
       write(10,*) x_all(1,1,ele), x_all(2,1,ele), t_new(1,ele)
       write(10,*) x_all(1,2,ele), x_all(2,2,ele), t_new(2,ele)
-      write(10,*) x_all(1,4,ele), x_all(2,4,ele), t_new(4,ele)
-      write(10,*) x_all(1,3,ele), x_all(2,3,ele), t_new(3,ele)
+      ! write(10,*) x_all(1,4,ele), x_all(2,4,ele), t_new(4,ele)
+      ! write(10,*) x_all(1,3,ele), x_all(2,3,ele), t_new(3,ele)
     end do
   close(10)
 
@@ -271,7 +276,6 @@ program wave_equation
              xsgi, usgi, usgi2, income, snorm, norm, &
              mass_ele, mass_ele_inv, rhs_loc, ml_ele, rhs_jac, mass_t_new,&
              SN_orig,SNLX_orig)
-
 end program wave_equation
 
 
@@ -285,7 +289,7 @@ subroutine surface_pointers_sn(nface, sngi, snloc, nloc, ndim, sndim, totele, n_
   ! ****integers:
   ! nface=no of faces of each elemenet.
   ! sngi=no of surface quadrature points of the faces - this is set to the max no of all faces.
-  ! snloc=no of nodes on a surface element.
+  ! snloc=no of nodes on a each surface of an element.
   ! nloc=no of nodes within a volume element.
   ! ndim=no of dimensions - including time possibly.
   ! sndim=ndim-1 dimensions of the surface elements.
@@ -386,9 +390,111 @@ subroutine surface_pointers_sn(nface, sngi, snloc, nloc, ndim, sndim, totele, n_
   !       ele=(jele-1)*nele_x + iele
   !    end do
   !  end do
-
 end subroutine surface_pointers_sn
 
+subroutine tri_surface_pointers_sn(nface, sngi, snloc, nloc, ndim, sndim, totele, n_s_list_no, nele_x, nele_y, &
+               sn_orig, snlx_orig, face_sn, face_snlx, face_sn2, face_list_no)
+  ! ********************************************************************************************************
+  ! calculate face_list_no( iface, ele), face_sn(:,:,iface); face_snlx(:,:,:,iface), face_sn2(:,:,s_list_no)
+  ! ********************************************************************************************************
+  ! ****integers:
+  ! nface=no of faces of each elemenet.
+  ! sngi=no of surface quadrature points of the faces - this is set to the max no of all faces.
+  ! snloc=no of nodes on a surface element.
+  ! nloc=no of nodes within a volume element.
+  ! ndim=no of dimensions - including time possibly.
+  ! sndim=ndim-1 dimensions of the surface elements.
+  ! totele=no of elements.
+  ! n_s_list_no= no of different oriantations for the surface element numbering.
+  ! nele_x = no of elements across in the x-direction.
+  ! nele_y = no of elements across in the y-direction.
+  !
+  ! ****original surface element shape functions:
+  ! sn_orig(sgi,siloc) = shape function at quadrature point sgi and surface node siloc
+  ! snlx_orig(sgi,1,siloc) = shape function derivative (only one in 2D) at quadrature point sgi and surface node siloc
+  !
+  ! ****new surface element shape functions designed to be highly efficient:
+  ! face_sn(sgi,iloc,iface) = shape function at quadrature point sgi and volume node iloc for face iface of element.
+  ! face_snlx(sgi,1,iloc,iface) = shape function derivative at quadrature point sgi and volume node iloc for face iface of element.
+  ! face_sn2(sgi,iloc,n_s_list_no) = shape function at quadrature point sgi but on the otherside of face and volume node iloc for face iface of element.
+  ! This works from: sn2 =face_sn2(:,:,s_list_no) in which  s_list_no = face_list_no( iface, ele) .
+  implicit none
+  integer, intent(in) :: nface, sngi, snloc, nloc, ndim, sndim, totele, n_s_list_no, nele_x, nele_y
+  real, intent(in) :: sn_orig(sngi,snloc), snlx_orig(sngi,sndim,snloc)
+  real, intent(out) :: face_sn(sngi,nloc,nface), face_snlx(sngi,sndim,nloc,nface), face_sn2(sngi,nloc,n_s_list_no)
+  integer, intent(out) :: face_list_no(nface,totele)
+  ! local variables...
+  integer iface,lnod1,lnod2,i_s_list_no
+
+  face_sn(:,:,:)=0.0
+  face_snlx(:,:,:,:)=0.0
+  face_sn2(:,:,:)=0.0
+
+  ! local face numbers:
+  !    |\        __1__
+  !   2| \ 3     \   |
+  !    |  \      3\  | 2
+  !    |___\       \ |
+  !      1          \|
+
+  ! local node numbers
+  !    3
+  !    |\        2___1
+  !    | \       \   |
+  !    |  \       \  |
+  !    |___\       \ |
+  !    1   2        \|
+  !                 3
+
+  iface=1
+  lnod1=2
+  lnod2=1
+  face_sn(:,lnod1,iface)=sn_orig(:,1)
+  face_sn(:,lnod2,iface)=sn_orig(:,2)
+  face_snlx(:,1,lnod1,iface)=snlx_orig(:,1,1)
+  face_snlx(:,1,lnod2,iface)=snlx_orig(:,1,2)
+  i_s_list_no = iface
+  lnod1=1
+  lnod2=2
+  face_sn2(:,lnod1,i_s_list_no)=sn_orig(:,1)
+  face_sn2(:,lnod2,i_s_list_no)=sn_orig(:,2)
+  face_list_no(iface,:) = i_s_list_no
+
+  iface=2
+  lnod1=1
+  lnod2=3
+  face_sn(:,lnod1,iface)=sn_orig(:,1)
+  face_sn(:,lnod2,iface)=sn_orig(:,2)
+  face_snlx(:,1,lnod1,iface)=snlx_orig(:,1,1)
+  face_snlx(:,1,lnod2,iface)=snlx_orig(:,1,2)
+  i_s_list_no = iface
+  lnod1=3
+  lnod2=1
+  face_sn2(:,lnod1,i_s_list_no)=sn_orig(:,1)
+  face_sn2(:,lnod2,i_s_list_no)=sn_orig(:,2)
+  face_list_no(iface,:) = i_s_list_no
+
+  iface=3
+  lnod1=3
+  lnod2=2
+  face_sn(:,lnod1,iface)=sn_orig(:,1)
+  face_sn(:,lnod2,iface)=sn_orig(:,2)
+  face_snlx(:,1,lnod1,iface)=snlx_orig(:,1,1)
+  face_snlx(:,1,lnod2,iface)=snlx_orig(:,1,2)
+  i_s_list_no = iface
+  lnod1=2
+  lnod2=3
+  face_sn2(:,lnod1,i_s_list_no)=sn_orig(:,1)
+  face_sn2(:,lnod2,i_s_list_no)=sn_orig(:,2)
+  face_list_no(iface,:) = i_s_list_no
+
+  ! calculate face_list_no(nface,totele) =
+  !  do jele=1,nele_y
+  !    do iele=1,nele_x
+  !       ele=(jele-1)*nele_x + iele
+  !    end do
+  !  end do
+end subroutine tri_surface_pointers_sn
 
 
 subroutine ele_info(totele, nface, face_ele, no_ele_row, row, row2, &
@@ -404,7 +510,7 @@ subroutine ele_info(totele, nface, face_ele, no_ele_row, row, row2, &
 
   implicit none
   integer, intent(in) :: no_ele_row, totele, no_ele_col, nloc, ndim, nface
-  integer, intent(inout) :: row, row2 , col ! why are these inout????
+  integer :: row, row2 , col
   integer:: face_ele(nface,totele), face_list_no(nface,totele), ele, iface
 
   real, intent(in) :: dx, dy
@@ -459,8 +565,119 @@ subroutine ele_info(totele, nface, face_ele, no_ele_row, row, row2, &
 end subroutine ele_info
 
 
+subroutine tri_ele_info(totele, nface, face_ele, no_ele_row, row, row2, &
+                         x_all, dx, dy, ndim, nloc, no_ele_col, col)
+  ! ordering the face numbers:
+  !    |\        __1__
+  !   2| \ 3     \   |
+  !    |  \      3\  | 2
+  !    |___\       \ |
+  !      1          \|
 
-!subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi, jac )
+  ! node numbering
+  !    3
+  !    |\        2___1
+  !    | \       \   |
+  !    |  \       \  |
+  !    |___\       \ |
+  !    1   2        \|
+  !                 3
+  ! row and row2 are row number associated with ele and ele2
+  ! no_ele_row is total number of element in each row
+  ! no_ele_col is total number of element in each column
+  ! ndim is no of dimensions
+  ! nloc is no of corner nodes
+  ! face_ele(iface, ele) = given the face no iface and element no return the element next to
+  ! the surface or if negative return the negative of the surface element number between element ele and face iface.
+
+  implicit none
+  integer, intent(in) :: no_ele_row, totele, no_ele_col, nloc, ndim, nface
+  integer :: row, row2 , col
+  integer:: face_ele(nface,totele), face_list_no(nface,totele), ele, iface
+
+  real, intent(in) :: dx, dy
+  real, intent(out) :: x_all(ndim,nloc,totele)
+
+  do ele=1,totele
+    row = ceiling(real(ele)/no_ele_row)
+    col = ele-(no_ele_row*(row-1))
+
+    ! corner node coordinates
+    if ( MOD(ele,2)>0 ) then ! pointing up triangles
+      x_all(1,1,ele) = dx*(col/2)   ; x_all(2,1,ele) = dy*(row-1)
+      x_all(1,2,ele) = dx*(col/2+1) ; x_all(2,2,ele) = dy*(row-1)
+      x_all(1,3,ele) = dx*(col/2)   ; x_all(2,3,ele) = dy*row
+      ! x_all(1,4,ele) = dx*col    ; x_all(2,4,ele) = dy*row
+
+      ! findin neighbiuring ele and face numbers
+      do iface=1,nface
+        if (iface==1) then
+          face_ele(iface,ele) = ele - no_ele_row
+          ! if (face_ele(iface,ele).LT.1) THEN
+          !   face_ele(iface,ele) = -1*face_ele(iface,ele)
+          ! end if
+
+        elseif ( iface==2 ) then
+          face_ele(iface,ele) = ele - 1   !It is a boundary element
+          ! face_list_no(iface,ele) = 2
+          row2 = ceiling(real(face_ele(iface,ele))/no_ele_row)
+          if (row2.NE.row) then
+            face_ele(iface,ele) = -1*face_ele(iface,ele)  !It is a boundary element located at the lest side of the domain
+            ! face_list_no(iface,ele) = -1*face_list_no(iface,ele)
+          end if
+
+        elseif ( iface==3 ) then
+          face_ele(iface,ele) = ele + 1
+          ! face_list_no(iface,ele) = 3
+          row2 = ceiling(real(face_ele(iface,ele))/no_ele_row)
+          if (row2.NE.row) then
+            face_ele(iface,ele) = -1*face_ele(iface,ele)  !It is a boundary element located at the right side of the domain
+            ! face_list_no(iface,ele) = -1*face_list_no(iface,ele)
+          end if
+        end if
+      end do ! iface
+
+    else ! pointing down triangles
+      x_all(1,1,ele) = dx*(col/2)   ; x_all(2,1,ele) = dy*row
+      x_all(1,2,ele) = dx*(col/2-1) ; x_all(2,2,ele) = dy*(row-1)
+      x_all(1,3,ele) = dx*(col/2)   ; x_all(2,3,ele) = dy*row
+
+      ! findin neighbiuring ele and face numbers
+      do iface=1,nface
+        if (iface==1) then
+          face_ele(iface,ele) = ele + no_ele_row -1
+          ! face_list_no(iface,ele) = 1
+          if (face_ele(iface,ele).GT.totele) then
+            face_ele(iface,ele) = -1*face_ele(iface,ele)  !It is a boundary element located at the top of the domain
+            ! face_list_no(iface,ele) = -1*face_list_no(iface,ele)
+          end if
+
+        elseif ( iface==2 ) then
+          face_ele(iface,ele) = ele + 1
+          ! face_list_no(iface,ele) = 3
+          row2 = ceiling(real(face_ele(iface,ele))/no_ele_row)
+          if (row2.NE.row) then
+            face_ele(iface,ele) = -1*face_ele(iface,ele)  !It is a boundary element located at the right side of the domain
+            ! face_list_no(iface,ele) = -1*face_list_no(iface,ele)
+          end if
+
+        elseif ( iface==3 ) then
+          face_ele(iface,ele) = ele - 1   !It is a boundary element
+          ! face_list_no(iface,ele) = 2
+          row2 = ceiling(real(face_ele(iface,ele))/no_ele_row)
+          if (row2.NE.row) then
+            face_ele(iface,ele) = -1*face_ele(iface,ele)  !It is a boundary element located at the lest side of the domain
+            ! face_list_no(iface,ele) = -1*face_list_no(iface,ele)
+          end if
+        end if
+      end do ! iface
+    end if
+
+  end do ! ele
+end subroutine tri_ele_info
+
+
+! This sub form the derivatives of the shape functions
 subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
   ! ****************************************************
   ! This sub form the derivatives of the shape functions
@@ -585,7 +802,6 @@ subroutine det_nlx( x_loc, n, nlx, nx, detwei, weight, ndim, nloc, ngi )
     end do ! GI Was loop 331
   end if
 end subroutine det_nlx
-
 
 
 SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,SNLX)
@@ -734,7 +950,7 @@ SUBROUTINE RE2DN4(LOWQUA,NGI,NLOC,MLOC,M,WEIGHT,N,NLX,NLY,SNGI,SNLOC,SWEIGH,SN,S
 END SUBROUTINE RE2DN4
 
 
-
+! This computes the weight and points for standard Gaussian quadrature
 SUBROUTINE LAGROT(WEIT,QUAPOS,NDGI,GETNDP)
   ! use RGPTWE_module
   IMPLICIT NONE
@@ -771,9 +987,6 @@ SUBROUTINE LAGROT(WEIT,QUAPOS,NDGI,GETNDP)
     ENDIF
   ENDIF
 END SUBROUTINE LAGROT
-
-
-
 
 
 SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SDETWE, SAREA, NORMXN_ALL, NORMX_ALL )
@@ -874,11 +1087,10 @@ SUBROUTINE det_snlx_all( SNLOC, SNGI, SNDIM, ndim, XSL_ALL, SN, SNLX, SWEIGH, SD
   end if
 
   RETURN
-
 END SUBROUTINE det_snlx_all
 
 
-
+! returns Gaussian weights
 REAL FUNCTION RGPTWE(IG,ND,WEIGHT)
     IMPLICIT NONE
     !     NB If WEIGHT is TRUE in function RGPTWE then return the Gauss-pt weight
@@ -1077,7 +1289,6 @@ REAL FUNCTION RGPTWE(IG,ND,WEIGHT)
 END FUNCTION RGPTWE
 
 
-
 ! normal at GI
 SUBROUTINE NORMGI( NORMXN, NORMYN, NORMZN, &
                    DXDLX, DYDLX, DZDLX, DXDLY, DYDLY, DZDLY, &
@@ -1226,180 +1437,180 @@ subroutine FINDInv(matrix, inverse, n, errorflag)
 end subroutine FINDinv
 
 
-subroutine ReadMSH(meshList,ios,filename)
-  !Reads the information of a msh ascii file generated by gmsh and stores
-  !it in a Mesh type structure. Includes information of the neigbours of each triangle
-  !meshList(out) :: type(Mesh)(:)
-  !ios(out) :: integer. If /= 0 then a problem happend while reading the file
-  !(Optional)filename(in) :: string with the relative path to the .msh file.
-  !                            By DEFAULT: input.msh
-    Implicit none
-    !Global variables
-    type(Mesh), intent(out), allocatable, dimension(:) :: meshList
-    character (len = *), optional, intent(in) :: filename
-    integer , intent(out) :: ios
-    !Local variables
-    character(len=500) :: filex, cadena, delim,path
-    character(len=200),dimension(100) :: parsed
-    integer :: i, j, nodes, aux, type, pos, xp1,xp2,xp3, Io
-    double precision :: daux,daux2
-    complex (kind = 8), allocatable, dimension(:) :: vertex !(X,Y)
-    type(Mesh), allocatable, dimension(:) :: meshList2
-    !Prepare data
-    delim = " "
-    filex = "input.msh"
-    if (present(filename)) then
-        filex = filename
-        !Check the .msh
-        i = index(filex, ".msh")
-        if (i==0) then
-            call insertstr(filex,".msh",len_trim(filex)+1)
-        end if
-    end if
-    !Open directory
-    Io = getCWD (path)
-    !To avoid using debug as working directory
-    call delsubstr(path,"/Debug")
-    path = trim(path)//"/"//trim(filex)
-    open(1,file = trim(path), status="old", action = "read")
-
-
-
-    !call readline(1,aux,i)
-    !Check type file
-    !First line: $MeshFormat
-    call readline(1,cadena,ios)
-    if (cadena /= "$MeshFormat") return
-    !Second line
-    call readline(1,cadena,ios)
-    call parse(cadena, delim, parsed, aux)
-    !First number is the version number, it must be 2.2
-    call value(parsed(1),daux,ios)
-    if (daux < 2d0 .or. daux > 2.2d0) print *,"The .msh version archive",daux,"do not math (2.2), this may cause troubles"
-    !Second number is to check that we are trating with the .msh ascii archive
-    call value(parsed(2),aux,ios)
-    if (aux /= 0) then
-        print *, ".msh binary archive type. Please use the .msh ascii type"
-        return
-    end if
-    !Ignore until the begining of the nodes part
-    do while (cadena /= "$Nodes")
-        call readline(1,cadena,ios)
-    end do
-    !Read number of nodes to allocate
-    call readline(1,cadena,ios)
-    call value(cadena,nodes,ios)
-    if (ios == 0) then
-        allocate(vertex(nodes))
-    else
-        print *,"Error while reading the number of nodes in the .msh archive"
-        return
-    end if
-    !Start to store the input data
-    !The information is stored as follows:
-    !First number: integer -> Node number
-    !Second number: double -> X coordinate
-    !Third number: double -> Y coordinate
-    !Forth number: double -> Z coordinate
-    !As we are in 2d we will only read the X and the Y
-    do i = 1, nodes
-        !Readline
-        call readline(1,cadena,ios)
-        !Split
-        call parse(cadena, delim, parsed, aux)
-        !Node number
-        call value(parsed(1), aux, ios)
-        !X coordinate
-        call value(parsed(2), daux, ios)
-        !Y coordinate
-        call value(parsed(3), daux2, ios)
-
-
-
-        if (ios == 0) then
-            vertex(aux)=cmplx(daux,daux2)
-        else
-            print *,"Error while reading the nodes in the .msh archive"
-            return
-        end if
-    end do
-    !Read until the definition of the triangles
-    do while (cadena /= "$Elements")
-        call readline(1,cadena,ios)
-    end do
-    !Store the number of triangles
-    call readline(1,cadena,ios)
-    call value(cadena,nodes,ios)
-    if (ios == 0) then
-        allocate(meshList2(nodes))
-    else
-        print *,"Error while reading the number of triangles in the .msh archive"
-        return
-    end if
-    j = 0
-    !This method only reads triangles, and will store just the vertex
-    do i = 1, nodes
-        !Readline
-        call readline(1,cadena,ios)
-        !Split
-        call parse(cadena, delim, parsed, aux)
-        !Element number
-        call value(parsed(1), pos, ios)
-        !Element type
-        call value(parsed(2), type, ios)
-
-
-
-        !Check if it is a triangle
-        if (.not.(type == 23 .or. type == 21 .or. type == 20 .or.&
-        type == 9 .or. type == 2 .or. type == 24 .or. type == 25)) then
-            j = j + 1
-            !Ignore this data
-            cycle
-        end if
-        !Number of tags(information that will follow and we are not interested in, hence we will skip it)
-        call value(parsed(3), aux, ios)
-        !Xp1 vertex
-        call value(parsed(4 + aux), xp1, ios)
-        !Xp2 vertex
-        call value(parsed(5 + aux), xp2, ios)
-        !Xp3 vertex
-        call value(parsed(6 + aux), xp3, ios)
-        if (ios == 0) then
-            !Xp1
-            meshList2(pos)%Xp1(1)=dble(vertex(Xp1))
-            meshList2(pos)%Xp1(2)=dble(aimag(vertex(Xp1)))
-            !Xp2
-            meshList2(pos)%Xp2(1)=dble(vertex(Xp2))
-            meshList2(pos)%Xp2(2)=dble(aimag(vertex(Xp2)))
-            !Xp3
-            meshList2(pos)%Xp3(1)=dble(vertex(Xp3))
-            meshList2(pos)%Xp3(2)=dble(aimag(vertex(Xp3)))
-        else
-            print *,"Error while reading the elements in the .msh archive"
-            return
-        end if
-    end do
-
-
-
-    !Store data in meshList
-    allocate(meshList(nodes - j))
-    do i = j + 1, nodes
-        meshList(i - j) = meshList2(i)
-        !Initialize to zero the default data of the neighbours
-        meshList(i - j)%neig = 0
-        meshList(i - j)%Dir = .false.
-    end do
-    deallocate(meshList2)
-
-
-
-    !Look for neighbours
-    do i = 1, size(meshList,1)
-        do j = i + 1, size(meshList,1)
-            call CheckNeig(meshList,i,j)
-        end do
-    end do
-    close(1)
-end subroutine ReadMSH
+! subroutine ReadMSH(meshList,ios,filename)
+!   !Reads the information of a msh ascii file generated by gmsh and stores
+!   !it in a Mesh type structure. Includes information of the neigbours of each triangle
+!   !meshList(out) :: type(Mesh)(:)
+!   !ios(out) :: integer. If /= 0 then a problem happend while reading the file
+!   !(Optional)filename(in) :: string with the relative path to the .msh file.
+!   !                            By DEFAULT: input.msh
+!     Implicit none
+!     !Global variables
+!     type(Mesh), intent(out), allocatable, dimension(:) :: meshList
+!     character (len = *), optional, intent(in) :: filename
+!     integer , intent(out) :: ios
+!     !Local variables
+!     character(len=500) :: filex, cadena, delim,path
+!     character(len=200),dimension(100) :: parsed
+!     integer :: i, j, nodes, aux, type, pos, xp1,xp2,xp3, Io
+!     double precision :: daux,daux2
+!     complex (kind = 8), allocatable, dimension(:) :: vertex !(X,Y)
+!     type(Mesh), allocatable, dimension(:) :: meshList2
+!     !Prepare data
+!     delim = " "
+!     filex = "input.msh"
+!     if (present(filename)) then
+!         filex = filename
+!         !Check the .msh
+!         i = index(filex, ".msh")
+!         if (i==0) then
+!             call insertstr(filex,".msh",len_trim(filex)+1)
+!         end if
+!     end if
+!     !Open directory
+!     Io = getCWD (path)
+!     !To avoid using debug as working directory
+!     call delsubstr(path,"/Debug")
+!     path = trim(path)//"/"//trim(filex)
+!     open(1,file = trim(path), status="old", action = "read")
+!
+!
+!
+!     !call readline(1,aux,i)
+!     !Check type file
+!     !First line: $MeshFormat
+!     call readline(1,cadena,ios)
+!     if (cadena /= "$MeshFormat") return
+!     !Second line
+!     call readline(1,cadena,ios)
+!     call parse(cadena, delim, parsed, aux)
+!     !First number is the version number, it must be 2.2
+!     call value(parsed(1),daux,ios)
+!     if (daux < 2d0 .or. daux > 2.2d0) print *,"The .msh version archive",daux,"do not math (2.2), this may cause troubles"
+!     !Second number is to check that we are trating with the .msh ascii archive
+!     call value(parsed(2),aux,ios)
+!     if (aux /= 0) then
+!         print *, ".msh binary archive type. Please use the .msh ascii type"
+!         return
+!     end if
+!     !Ignore until the begining of the nodes part
+!     do while (cadena /= "$Nodes")
+!         call readline(1,cadena,ios)
+!     end do
+!     !Read number of nodes to allocate
+!     call readline(1,cadena,ios)
+!     call value(cadena,nodes,ios)
+!     if (ios == 0) then
+!         allocate(vertex(nodes))
+!     else
+!         print *,"Error while reading the number of nodes in the .msh archive"
+!         return
+!     end if
+!     !Start to store the input data
+!     !The information is stored as follows:
+!     !First number: integer -> Node number
+!     !Second number: double -> X coordinate
+!     !Third number: double -> Y coordinate
+!     !Forth number: double -> Z coordinate
+!     !As we are in 2d we will only read the X and the Y
+!     do i = 1, nodes
+!         !Readline
+!         call readline(1,cadena,ios)
+!         !Split
+!         call parse(cadena, delim, parsed, aux)
+!         !Node number
+!         call value(parsed(1), aux, ios)
+!         !X coordinate
+!         call value(parsed(2), daux, ios)
+!         !Y coordinate
+!         call value(parsed(3), daux2, ios)
+!
+!
+!
+!         if (ios == 0) then
+!             vertex(aux)=cmplx(daux,daux2)
+!         else
+!             print *,"Error while reading the nodes in the .msh archive"
+!             return
+!         end if
+!     end do
+!     !Read until the definition of the triangles
+!     do while (cadena /= "$Elements")
+!         call readline(1,cadena,ios)
+!     end do
+!     !Store the number of triangles
+!     call readline(1,cadena,ios)
+!     call value(cadena,nodes,ios)
+!     if (ios == 0) then
+!         allocate(meshList2(nodes))
+!     else
+!         print *,"Error while reading the number of triangles in the .msh archive"
+!         return
+!     end if
+!     j = 0
+!     !This method only reads triangles, and will store just the vertex
+!     do i = 1, nodes
+!         !Readline
+!         call readline(1,cadena,ios)
+!         !Split
+!         call parse(cadena, delim, parsed, aux)
+!         !Element number
+!         call value(parsed(1), pos, ios)
+!         !Element type
+!         call value(parsed(2), type, ios)
+!
+!
+!
+!         !Check if it is a triangle
+!         if (.not.(type == 23 .or. type == 21 .or. type == 20 .or.&
+!         type == 9 .or. type == 2 .or. type == 24 .or. type == 25)) then
+!             j = j + 1
+!             !Ignore this data
+!             cycle
+!         end if
+!         !Number of tags(information that will follow and we are not interested in, hence we will skip it)
+!         call value(parsed(3), aux, ios)
+!         !Xp1 vertex
+!         call value(parsed(4 + aux), xp1, ios)
+!         !Xp2 vertex
+!         call value(parsed(5 + aux), xp2, ios)
+!         !Xp3 vertex
+!         call value(parsed(6 + aux), xp3, ios)
+!         if (ios == 0) then
+!             !Xp1
+!             meshList2(pos)%Xp1(1)=dble(vertex(Xp1))
+!             meshList2(pos)%Xp1(2)=dble(aimag(vertex(Xp1)))
+!             !Xp2
+!             meshList2(pos)%Xp2(1)=dble(vertex(Xp2))
+!             meshList2(pos)%Xp2(2)=dble(aimag(vertex(Xp2)))
+!             !Xp3
+!             meshList2(pos)%Xp3(1)=dble(vertex(Xp3))
+!             meshList2(pos)%Xp3(2)=dble(aimag(vertex(Xp3)))
+!         else
+!             print *,"Error while reading the elements in the .msh archive"
+!             return
+!         end if
+!     end do
+!
+!
+!
+!     !Store data in meshList
+!     allocate(meshList(nodes - j))
+!     do i = j + 1, nodes
+!         meshList(i - j) = meshList2(i)
+!         !Initialize to zero the default data of the neighbours
+!         meshList(i - j)%neig = 0
+!         meshList(i - j)%Dir = .false.
+!     end do
+!     deallocate(meshList2)
+!
+!
+!
+!     !Look for neighbours
+!     do i = 1, size(meshList,1)
+!         do j = i + 1, size(meshList,1)
+!             call CheckNeig(meshList,i,j)
+!         end do
+!     end do
+!     close(1)
+! end subroutine ReadMSH

@@ -1523,3 +1523,8 @@
 !   end do
 ! end subroutine coordinates
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!111
+program amin
+implicit none
+real:: a=0.785398
+print*, SIN(a)
+end program amin
